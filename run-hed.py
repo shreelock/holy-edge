@@ -12,7 +12,7 @@ def get_session(gpu_fraction):
 
     '''Assume that you have 6GB of GPU memory and want to allocate ~2GB'''
 
-    num_threads = int(os.environ.get('OMP_NUM_THREADS'))
+    num_threads = 2#int(os.environ.get('OMP_NUM_THREADS'))
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_fraction)
 
     if num_threads:
@@ -24,7 +24,7 @@ def get_session(gpu_fraction):
 def main(args):
 
     if not (args.run_train or args.run_test or args.download_data):
-        print 'Set atleast one of the options --train | --test | --download-data'
+        print ('Set atleast one of the options --train | --test | --download-data')
         parser.print_help()
         return
 

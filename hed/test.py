@@ -4,15 +4,14 @@ import argparse
 import yaml
 import urlparse
 import urllib
-import StringIO
-import cStringIO
+import io
 import numpy as np
 from PIL import Image
 import tensorflow as tf
-
+import cv2
 from hed.models.vgg16 import Vgg16
 from hed.utils.io import IO
-
+from utils.thinning_fn import thinning
 
 class HEDTester():
 
@@ -66,7 +65,7 @@ class HEDTester():
             im = self.fetch_image(test_filename)
 
             edgemap = session.run(self.model.predictions, feed_dict={self.model.images: [im]})
-            self.save_egdemaps(edgemap, idx)
+            # self.save_egdemaps(edgemap, idx)
 
             self.io.print_info('Done testing {}, {}'.format(test_filename, im.shape))
 
@@ -86,6 +85,14 @@ class HEDTester():
             em = Image.fromarray(np.uint8(em))
             em.save(os.path.join(self.cfgs['test_output'], 'testing-{}-{:03}.png'.format(index, idx)))
 
+            im = 255 - cv2.imread(os.path.join(self.cfgs['test_output'], 'testing-{}-{:03}.png'.format(index, idx)), cv2.CV_LOAD_IMAGE_GRAYSCALE)
+            _, bw2 = cv2.threshold(im, 0, 255, cv2.THRESH_OTSU+cv2.THRESH_BINARY)
+            bw2 = cv2.erode(bw2, np.ones((3,3), np.uint8), iterations=1)
+            bw2 = thinning(bw2)
+            cv2.imwrite(os.path.join(self.cfgs['test_output'], 'testing-{}-{:03}-th.png'.format(index, idx)), 255-bw2)
+
+
+
     def fetch_image(self, test_image):
 
         # is url
@@ -96,17 +103,17 @@ class HEDTester():
             url_response = urllib.urlopen(test_image)
 
             if url_response.code == 404:
-                print self.io.print_error('[Testing] URL error code : {1} for {0}'.format(test_image, url_response.code))
+                print (self.io.print_error('[Testing] URL error code : {1} for {0}'.format(test_image, url_response.code)))
                 return None
 
             try:
 
-                image_buffer = cStringIO.StringIO(url_response.read())
+                image_buffer = io.BytesIO(url_response.read())
                 image = self.capture_pixels(image_buffer)
 
             except Exception as err:
 
-                print self.io.print_error('[Testing] Error with URL {0} {1}'.format(test_image, err))
+                print (self.io.print_error('[Testing] Error with URL {0} {1}'.format(test_image, err)))
                 return None
 
         # read from disk
@@ -118,12 +125,12 @@ class HEDTester():
                 stream = fid.read()
                 fid.close()
 
-                image_buffer = cStringIO.StringIO(stream)
+                image_buffer = io.BytesIO(stream)
                 image = self.capture_pixels(image_buffer)
 
             except Exception as err:
 
-                print self.io.print_error('[Testing] Error with image file {0} {1}'.format(test_image, err))
+                print (self.io.print_error('[Testing] Error with image file {0} {1}'.format(test_image, err)))
                 return None
 
         return image
